@@ -9,12 +9,15 @@ from models.models import (
 from routes.reconciliation_routes import reconciliation_bp
 
 
-def create_app():
+def create_app(test_config=None):
     app = Flask(__name__)
 
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///reconciliation.db"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["UPLOAD_FOLDER"] = "data/uploads"
+
+    if test_config:
+        app.config.update(test_config)
 
     db.init_app(app)
 

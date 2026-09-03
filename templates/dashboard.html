@@ -11,7 +11,8 @@ Dashboard - Transaction Reconciliation
 {% if latest_run %}
 
 <p>
-    Latest Run: <strong>#{{ latest_run.id }}</strong>
+    Latest Run:
+    <strong>#{{ latest_run.id }}</strong>
 </p>
 
 <div class="stats">
@@ -23,17 +24,30 @@ Dashboard - Transaction Reconciliation
 
     <div class="stat">
         <h3>Matched</h3>
-        <h2 class="matched">{{ stats.matched }}</h2>
+        <h2 class="matched">
+            {{ stats.matched }}
+        </h2>
     </div>
 
     <div class="stat">
         <h3>Mismatched</h3>
-        <h2 class="mismatch">{{ stats.mismatch }}</h2>
+        <h2 class="mismatch">
+            {{ stats.mismatch }}
+        </h2>
     </div>
 
     <div class="stat">
         <h3>Unmatched</h3>
-        <h2 class="unmatched">{{ stats.unmatched }}</h2>
+        <h2 class="unmatched">
+            {{ stats.unmatched }}
+        </h2>
+    </div>
+
+    <div class="stat">
+        <h3>Manually Resolved</h3>
+        <h2 class="matched">
+            {{ stats.manual }}
+        </h2>
     </div>
 
 </div>
@@ -42,7 +56,9 @@ Dashboard - Transaction Reconciliation
 
 <a
     class="button"
-    href="{{ url_for('reconciliation.run_reconciliation') }}"
+    href="{{ url_for(
+        'reconciliation.run_reconciliation'
+    ) }}"
 >
     Start New Run
 </a>
@@ -56,6 +72,11 @@ Dashboard - Transaction Reconciliation
 
     <p>
         Run #{{ latest_run.id }}
+    </p>
+
+    <p>
+        Created:
+        {{ latest_run.created_at }}
     </p>
 
     <a
@@ -82,7 +103,9 @@ Dashboard - Transaction Reconciliation
 
     <a
         class="button"
-        href="{{ url_for('reconciliation.run_reconciliation') }}"
+        href="{{ url_for(
+            'reconciliation.run_reconciliation'
+        ) }}"
     >
         Start First Run
     </a>
@@ -101,11 +124,13 @@ Dashboard - Transaction Reconciliation
     <table>
 
         <thead>
+
             <tr>
                 <th>Run</th>
                 <th>Created</th>
                 <th>Action</th>
             </tr>
+
         </thead>
 
         <tbody>
@@ -123,6 +148,7 @@ Dashboard - Transaction Reconciliation
                 </td>
 
                 <td>
+
                     <a
                         class="button"
                         href="{{ url_for(
@@ -132,6 +158,7 @@ Dashboard - Transaction Reconciliation
                     >
                         View Results
                     </a>
+
                 </td>
 
             </tr>

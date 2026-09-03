@@ -38,6 +38,7 @@ def create_app():
             "matched": 0,
             "mismatch": 0,
             "unmatched": 0,
+            "manual": 0,
         }
 
         if latest_run:
@@ -49,21 +50,30 @@ def create_app():
             stats["total"] = len(results)
 
             stats["matched"] = sum(
-                1 for result in results
+                1
+                for result in results
                 if result.status == "MATCHED"
             )
 
             stats["mismatch"] = sum(
-                1 for result in results
+                1
+                for result in results
                 if result.status == "MISMATCH"
             )
 
             stats["unmatched"] = sum(
-                1 for result in results
+                1
+                for result in results
                 if result.status in [
                     "UNMATCHED_LEDGER",
                     "UNMATCHED_STATEMENT",
                 ]
+            )
+
+            stats["manual"] = sum(
+                1
+                for result in results
+                if result.status == "MANUALLY_MATCHED"
             )
 
         return render_template(

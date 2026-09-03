@@ -9,78 +9,127 @@ Results - Transaction Reconciliation
 <h1>Reconciliation Results</h1>
 
 <p>
-    Run #{{ run_id }}
+    Run #{{ run.id }}
 </p>
 
 <div class="card">
 
-<table>
+    <table>
 
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Status</th>
-            <th>Match Type</th>
-            <th>Differences</th>
-            <th>Action</th>
-        </tr>
-    </thead>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Status</th>
+                <th>Match Type</th>
+                <th>Differences</th>
+                <th>Resolution</th>
+                <th>Action</th>
+            </tr>
+        </thead>
 
-    <tbody>
+        <tbody>
 
-    {% for result in results %}
+        {% for result in results %}
 
-        <tr>
+            <tr>
 
-            <td>
-                {{ result.id }}
-            </td>
+                <td>
+                    {{ result.id }}
+                </td>
 
-            <td class="status
-                {% if result.status == 'MATCHED' %}
-                    matched
-                {% elif result.status == 'MISMATCH' %}
-                    mismatch
-                {% else %}
-                    unmatched
-                {% endif %}
-            ">
-                {{ result.status }}
-            </td>
+                <td>
+                    <span class="status
+                        {% if result.status == 'MATCHED' %}
+                            matched
+                        {% elif result.status == 'MANUALLY_MATCHED' %}
+                            matched
+                        elif result.status == 'MISMATCH' %}
+                            mismatch
+                        {% else %}
+                            unmatched
+                        {% endif %}
+                    ">
+                        {{ result.status }}
+                    </span>
+                </td>
 
-            <td>
-                {{ result.match_type or "-" }}
-            </td>
+                <td>
+                    {{ result.match_type or "-" }}
+                </td>
 
-            <td>
-                {% if result.differences and result.differences != "{}" %}
-                    {{ result.differences }}
-                {% else %}
-                    -
-                {% endif %}
-            </td>
+                <td>
 
-            <td>
-                <a
-                    class="button"
-                    href="{{ url_for(
-                        'reconciliation.detail',
-                        result_id=result.id
-                    ) }}"
-                >
-                    View
-                </a>
-            </td>
+                    {% if result.differences and result.differences != "{}" %}
 
-        </tr>
+                        {% if result.status == "MANUALLY_MATCHED" %}
 
-    {% endfor %}
+                            <strong>Manually resolved</strong>
 
-    </tbody>
+                            <br>
 
-</table>
+                            <small>
+                                Differences were reviewed and accepted.
+                            </small>
+
+                        {% else %}
+
+                            <small>
+                                {{ result.differences }}
+                            </small>
+
+                        {% endif %}
+
+                    {% else %}
+
+                        <span>-</span>
+
+                    {% endif %}
+
+                </td>
+
+                <td>
+
+                    {% if result.resolution_status == "RESOLVED" %}
+
+                        <span class="status matched">
+                            RESOLVED
+                        </span>
+
+                    {% else %}
+
+                        <span class="status unmatched">
+                            UNRESOLVED
+                        </span>
+
+                    {% endif %}
+
+                </td>
+
+                <td>
+
+                    <a
+                        class="button"
+                        href="{{ url_for(
+                            'reconciliation.detail',
+                            result_id=result.id
+                        ) }}"
+                    >
+                        View
+                    </a>
+
+                </td>
+
+            </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table>
 
 </div>
+
+<br>
 
 <a class="button" href="/">
     Back to Dashboard

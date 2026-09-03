@@ -1,153 +1,90 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Transaction Details</title>
+{% extends "base.html" %}
 
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f4f6f8;
-            margin: 0;
-            padding: 40px;
-            color: #222;
-        }
+{% block title %}
+Transaction Details
+{% endblock %}
 
-        h1 {
-            font-size: 42px;
-        }
-
-        h2 {
-            font-size: 30px;
-        }
-
-        .card {
-            background: white;
-            padding: 30px;
-            margin-bottom: 30px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-        }
-
-        .columns {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-        }
-
-        .status {
-            font-size: 30px;
-            font-weight: bold;
-        }
-
-        .matched {
-            color: green;
-        }
-
-        .mismatch {
-            color: #e67e00;
-        }
-
-        .unmatched {
-            color: #d62828;
-        }
-
-        .field {
-            margin: 18px 0;
-            font-size: 20px;
-        }
-
-        .field strong {
-            margin-right: 5px;
-        }
-
-        .candidate {
-            border: 1px solid #ddd;
-            padding: 20px;
-            margin: 15px 0;
-            border-radius: 8px;
-        }
-
-        button {
-            background: #222;
-            color: white;
-            border: none;
-            padding: 12px 22px;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: #444;
-        }
-
-        .back {
-            display: inline-block;
-            background: #222;
-            color: white;
-            padding: 14px 25px;
-            border-radius: 6px;
-            text-decoration: none;
-            margin-bottom: 30px;
-            font-size: 18px;
-        }
-
-        .success {
-            color: green;
-            font-weight: bold;
-        }
-    </style>
-</head>
-
-<body>
+{% block content %}
 
 <a
-    class="back"
-    href="{{ url_for('reconciliation.results', run_id=result.run_id) }}"
+    class="button"
+    href="{{ url_for(
+        'reconciliation.results',
+        run_id=result.run_id
+    ) }}"
 >
     ← Back to Results
 </a>
 
+<br>
+<br>
+
 <h1>Transaction Details</h1>
+
+
+<!-- =====================================================
+     STATUS
+     ===================================================== -->
 
 <div class="card">
 
     {% if result.status == "MATCHED" %}
+
         <div class="status matched">
-            Status: {{ result.status }}
+            Status: MATCHED
         </div>
 
     {% elif result.status == "MANUALLY_MATCHED" %}
+
         <div class="status matched">
-            Status: {{ result.status }}
+            Status: MANUALLY MATCHED
         </div>
 
     {% elif result.status == "MISMATCH" %}
+
         <div class="status mismatch">
-            Status: {{ result.status }}
+            Status: MISMATCH
         </div>
 
     {% else %}
+
         <div class="status unmatched">
             Status: {{ result.status }}
         </div>
+
     {% endif %}
 
+
     <div class="field">
+
         <strong>Match Type:</strong>
+
         {{ result.match_type or "Not matched" }}
+
     </div>
 
+
     {% if result.resolution_status == "RESOLVED" %}
+
         <div class="success">
             ✓ Manually resolved
         </div>
+
     {% endif %}
 
 </div>
 
 
+<!-- =====================================================
+     TRANSACTION COMPARISON
+     ===================================================== -->
+
 <div class="columns">
+
+
+    <!-- =================================================
+         LEDGER
+         ================================================= -->
 
     <div class="card">
 
@@ -172,17 +109,17 @@
 
             <div class="field">
                 <strong>Quantity:</strong>
-                {{ ledger.quantity }}
+                {{ "%.4f"|format(ledger.quantity) }}
             </div>
 
             <div class="field">
                 <strong>Price:</strong>
-                {{ ledger.price }}
+                {{ "%.2f"|format(ledger.price) }}
             </div>
 
             <div class="field">
                 <strong>Gross Amount:</strong>
-                {{ ledger.gross_amount }}
+                {{ "%.2f"|format(ledger.gross_amount) }}
             </div>
 
             <div class="field">
@@ -197,12 +134,18 @@
 
         {% else %}
 
-            <p>No ledger transaction.</p>
+            <p>
+                No ledger transaction.
+            </p>
 
         {% endif %}
 
     </div>
 
+
+    <!-- =================================================
+         STATEMENT
+         ================================================= -->
 
     <div class="card">
 
@@ -227,17 +170,17 @@
 
             <div class="field">
                 <strong>Quantity:</strong>
-                {{ statement.quantity }}
+                {{ "%.4f"|format(statement.quantity) }}
             </div>
 
             <div class="field">
                 <strong>Price:</strong>
-                {{ statement.price }}
+                {{ "%.2f"|format(statement.price) }}
             </div>
 
             <div class="field">
                 <strong>Total:</strong>
-                {{ statement.gross_amount }}
+                {{ "%.2f"|format(statement.gross_amount) }}
             </div>
 
             <div class="field">
@@ -252,7 +195,9 @@
 
         {% else %}
 
-            <p>No statement transaction matched.</p>
+            <p>
+                No statement transaction matched.
+            </p>
 
         {% endif %}
 
@@ -260,6 +205,117 @@
 
 </div>
 
+
+<!-- =====================================================
+     DIFFERENCES
+     ===================================================== -->
+
+{% if result.status == "MISMATCH" %}
+
+<div class="card">
+
+    <h2>Detected Differences</h2>
+
+    <p>
+        The transactions were matched, but one or more fields
+        differ beyond the configured tolerance.
+    </p>
+
+    {% if ledger and statement %}
+
+    <table>
+
+        <thead>
+
+            <tr>
+                <th>Field</th>
+                <th>Ledger</th>
+                <th>Statement</th>
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            {% if ledger.instrument != statement.instrument %}
+
+            <tr>
+                <td><strong>Instrument</strong></td>
+                <td>{{ ledger.instrument }}</td>
+                <td>{{ statement.instrument }}</td>
+            </tr>
+
+            {% endif %}
+
+
+            {% if ledger.side != statement.side %}
+
+            <tr>
+                <td><strong>Side</strong></td>
+                <td>{{ ledger.side }}</td>
+                <td>{{ statement.side }}</td>
+            </tr>
+
+            {% endif %}
+
+
+            {% if ledger.quantity != statement.quantity %}
+
+            <tr>
+                <td><strong>Quantity</strong></td>
+                <td>{{ "%.4f"|format(ledger.quantity) }}</td>
+                <td>{{ "%.4f"|format(statement.quantity) }}</td>
+            </tr>
+
+            {% endif %}
+
+
+            {% if ledger.price != statement.price %}
+
+            <tr>
+                <td><strong>Price</strong></td>
+                <td>{{ "%.2f"|format(ledger.price) }}</td>
+                <td>{{ "%.2f"|format(statement.price) }}</td>
+            </tr>
+
+            {% endif %}
+
+
+            {% if ledger.gross_amount != statement.gross_amount %}
+
+            <tr>
+                <td><strong>Amount</strong></td>
+                <td>{{ "%.2f"|format(ledger.gross_amount) }}</td>
+                <td>{{ "%.2f"|format(statement.gross_amount) }}</td>
+            </tr>
+
+            {% endif %}
+
+
+            {% if ledger.traded_at != statement.traded_at %}
+
+            <tr>
+                <td><strong>Trade Time</strong></td>
+                <td>{{ ledger.traded_at }}</td>
+                <td>{{ statement.traded_at }}</td>
+            </tr>
+
+            {% endif %}
+
+        </tbody>
+
+    </table>
+
+    {% endif %}
+
+</div>
+
+{% endif %}
+
+
+<!-- =====================================================
+     MANUAL MATCHING
+     ===================================================== -->
 
 {% if candidates and result.resolution_status != "RESOLVED" %}
 
@@ -269,8 +325,10 @@
 
     <p>
         These transactions have matching instrument, side,
-        and a nearby trade time. They can be manually reviewed.
+        and a nearby trade time. Review them before manually
+        resolving this transaction.
     </p>
+
 
     {% for candidate in candidates %}
 
@@ -293,23 +351,24 @@
 
         <div class="field">
             <strong>Quantity:</strong>
-            {{ candidate.quantity }}
+            {{ "%.4f"|format(candidate.quantity) }}
         </div>
 
         <div class="field">
             <strong>Price:</strong>
-            {{ candidate.price }}
+            {{ "%.2f"|format(candidate.price) }}
         </div>
 
         <div class="field">
             <strong>Amount:</strong>
-            {{ candidate.gross_amount }}
+            {{ "%.2f"|format(candidate.gross_amount) }}
         </div>
 
         <div class="field">
             <strong>Time:</strong>
             {{ candidate.traded_at }}
         </div>
+
 
         <form
             method="POST"
@@ -334,8 +393,11 @@
 
 </div>
 
-{% elif result.status in ["UNMATCHED_LEDGER", "UNMATCHED_STATEMENT"]
-      and result.resolution_status != "RESOLVED" %}
+
+{% elif result.status in [
+    "UNMATCHED_LEDGER",
+    "UNMATCHED_STATEMENT"
+] and result.resolution_status != "RESOLVED" %}
 
 <div class="card">
 
@@ -349,5 +411,5 @@
 
 {% endif %}
 
-</body>
-</html>
+
+{% endblock %}

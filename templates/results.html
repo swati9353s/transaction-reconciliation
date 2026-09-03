@@ -38,12 +38,13 @@ Results - Transaction Reconciliation
                 </td>
 
                 <td>
+
                     <span class="status
                         {% if result.status == 'MATCHED' %}
                             matched
                         {% elif result.status == 'MANUALLY_MATCHED' %}
                             matched
-                        elif result.status == 'MISMATCH' %}
+                        {% elif result.status == 'MISMATCH' %}
                             mismatch
                         {% else %}
                             unmatched
@@ -51,6 +52,7 @@ Results - Transaction Reconciliation
                     ">
                         {{ result.status }}
                     </span>
+
                 </td>
 
                 <td>
@@ -59,29 +61,38 @@ Results - Transaction Reconciliation
 
                 <td>
 
-                    {% if result.differences and result.differences != "{}" %}
+                    {% if result.status == "MISMATCH" %}
 
-                        {% if result.status == "MANUALLY_MATCHED" %}
+                        <span class="mismatch">
+                            Differences found
+                        </span>
 
-                            <strong>Manually resolved</strong>
+                    {% elif result.status == "MANUALLY_MATCHED" %}
 
-                            <br>
+                        <strong class="matched">
+                            Manually resolved
+                        </strong>
 
-                            <small>
-                                Differences were reviewed and accepted.
-                            </small>
+                        <br>
 
-                        {% else %}
+                        <small>
+                            Differences were reviewed and accepted.
+                        </small>
 
-                            <small>
-                                {{ result.differences }}
-                            </small>
+                    {% elif result.status in [
+                        "UNMATCHED_LEDGER",
+                        "UNMATCHED_STATEMENT"
+                    ] %}
 
-                        {% endif %}
+                        <span class="unmatched">
+                            No automatic match
+                        </span>
 
                     {% else %}
 
-                        <span>-</span>
+                        <span>
+                            -
+                        </span>
 
                     {% endif %}
 
@@ -89,7 +100,13 @@ Results - Transaction Reconciliation
 
                 <td>
 
-                    {% if result.resolution_status == "RESOLVED" %}
+                    {% if result.status == "MATCHED" %}
+
+                        <span class="status matched">
+                            AUTOMATIC
+                        </span>
+
+                    {% elif result.status == "MANUALLY_MATCHED" %}
 
                         <span class="status matched">
                             RESOLVED
@@ -131,7 +148,10 @@ Results - Transaction Reconciliation
 
 <br>
 
-<a class="button" href="/">
+<a
+    class="button"
+    href="/"
+>
     Back to Dashboard
 </a>
 

@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}
+Dashboard - Transaction Reconciliation
+{% endblock %}
+
+{% block content %}
+
+<h1>Transaction Reconciliation</h1>
+
+{% if latest_run %}
+
+<p>
+    Latest Run: <strong>#{{ latest_run.id }}</strong>
+</p>
+
+<div class="stats">
+
+    <div class="stat">
+        <h3>Total</h3>
+        <h2>{{ stats.total }}</h2>
+    </div>
+
+    <div class="stat">
+        <h3>Matched</h3>
+        <h2 class="matched">{{ stats.matched }}</h2>
+    </div>
+
+    <div class="stat">
+        <h3>Mismatched</h3>
+        <h2 class="mismatch">{{ stats.mismatch }}</h2>
+    </div>
+
+    <div class="stat">
+        <h3>Unmatched</h3>
+        <h2 class="unmatched">{{ stats.unmatched }}</h2>
+    </div>
+
+</div>
+
+<br>
+
+<a
+    class="button"
+    href="{{ url_for('reconciliation.run_reconciliation') }}"
+>
+    Start New Run
+</a>
+
+<br>
+<br>
+
+<div class="card">
+
+    <h2>Latest Run</h2>
+
+    <p>
+        Run #{{ latest_run.id }}
+    </p>
+
+    <a
+        class="button"
+        href="{{ url_for(
+            'reconciliation.results',
+            run_id=latest_run.id
+        ) }}"
+    >
+        View Results
+    </a>
+
+</div>
+
+{% else %}
+
+<div class="card">
+
+    <h2>No reconciliation runs yet</h2>
+
+    <p>
+        Start your first reconciliation run.
+    </p>
+
+    <a
+        class="button"
+        href="{{ url_for('reconciliation.run_reconciliation') }}"
+    >
+        Start First Run
+    </a>
+
+</div>
+
+{% endif %}
+
+
+{% if recent_runs %}
+
+<div class="card">
+
+    <h2>Recent Runs</h2>
+
+    <table>
+
+        <thead>
+            <tr>
+                <th>Run</th>
+                <th>Created</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+        {% for run in recent_runs %}
+
+            <tr>
+
+                <td>
+                    #{{ run.id }}
+                </td>
+
+                <td>
+                    {{ run.created_at }}
+                </td>
+
+                <td>
+                    <a
+                        class="button"
+                        href="{{ url_for(
+                            'reconciliation.results',
+                            run_id=run.id
+                        ) }}"
+                    >
+                        View Results
+                    </a>
+                </td>
+
+            </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Transaction Details</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 40px;
+            color: #222;
+        }
+
+        h1 {
+            font-size: 42px;
+        }
+
+        h2 {
+            font-size: 30px;
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        }
+
+        .columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .status {
+            font-size: 30px;
+            font-weight: bold;
+        }
+
+        .matched {
+            color: green;
+        }
+
+        .mismatch {
+            color: #e67e00;
+        }
+
+        .unmatched {
+            color: #d62828;
+        }
+
+        .field {
+            margin: 18px 0;
+            font-size: 20px;
+        }
+
+        .field strong {
+            margin-right: 5px;
+        }
+
+        .candidate {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+
+        button {
+            background: #222;
+            color: white;
+            border: none;
+            padding: 12px 22px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #444;
+        }
+
+        .back {
+            display: inline-block;
+            background: #222;
+            color: white;
+            padding: 14px 25px;
+            border-radius: 6px;
+            text-decoration: none;
+            margin-bottom: 30px;
+            font-size: 18px;
+        }
+
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<a
+    class="back"
+    href="{{ url_for('reconciliation.results', run_id=result.run_id) }}"
+>
+    ← Back to Results
+</a>
+
+<h1>Transaction Details</h1>
+
+<div class="card">
+
+    {% if result.status == "MATCHED" %}
+        <div class="status matched">
+            Status: {{ result.status }}
+        </div>
+
+    {% elif result.status == "MANUALLY_MATCHED" %}
+        <div class="status matched">
+            Status: {{ result.status }}
+        </div>
+
+    {% elif result.status == "MISMATCH" %}
+        <div class="status mismatch">
+            Status: {{ result.status }}
+        </div>
+
+    {% else %}
+        <div class="status unmatched">
+            Status: {{ result.status }}
+        </div>
+    {% endif %}
+
+    <div class="field">
+        <strong>Match Type:</strong>
+        {{ result.match_type or "Not matched" }}
+    </div>
+
+    {% if result.resolution_status == "RESOLVED" %}
+        <div class="success">
+            ✓ Manually resolved
+        </div>
+    {% endif %}
+
+</div>
+
+
+<div class="columns">
+
+    <div class="card">
+
+        <h2>Ledger</h2>
+
+        {% if ledger %}
+
+            <div class="field">
+                <strong>Transaction ID:</strong>
+                {{ ledger.external_id }}
+            </div>
+
+            <div class="field">
+                <strong>Instrument:</strong>
+                {{ ledger.instrument }}
+            </div>
+
+            <div class="field">
+                <strong>Side:</strong>
+                {{ ledger.side }}
+            </div>
+
+            <div class="field">
+                <strong>Quantity:</strong>
+                {{ ledger.quantity }}
+            </div>
+
+            <div class="field">
+                <strong>Price:</strong>
+                {{ ledger.price }}
+            </div>
+
+            <div class="field">
+                <strong>Gross Amount:</strong>
+                {{ ledger.gross_amount }}
+            </div>
+
+            <div class="field">
+                <strong>Trade Time:</strong>
+                {{ ledger.traded_at }}
+            </div>
+
+            <div class="field">
+                <strong>State:</strong>
+                {{ ledger.state }}
+            </div>
+
+        {% else %}
+
+            <p>No ledger transaction.</p>
+
+        {% endif %}
+
+    </div>
+
+
+    <div class="card">
+
+        <h2>Statement</h2>
+
+        {% if statement %}
+
+            <div class="field">
+                <strong>Transaction ID:</strong>
+                {{ statement.external_id }}
+            </div>
+
+            <div class="field">
+                <strong>Instrument:</strong>
+                {{ statement.instrument }}
+            </div>
+
+            <div class="field">
+                <strong>Side:</strong>
+                {{ statement.side }}
+            </div>
+
+            <div class="field">
+                <strong>Quantity:</strong>
+                {{ statement.quantity }}
+            </div>
+
+            <div class="field">
+                <strong>Price:</strong>
+                {{ statement.price }}
+            </div>
+
+            <div class="field">
+                <strong>Total:</strong>
+                {{ statement.gross_amount }}
+            </div>
+
+            <div class="field">
+                <strong>Executed Time:</strong>
+                {{ statement.traded_at }}
+            </div>
+
+            <div class="field">
+                <strong>Status:</strong>
+                {{ statement.state }}
+            </div>
+
+        {% else %}
+
+            <p>No statement transaction matched.</p>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+
+{% if candidates and result.resolution_status != "RESOLVED" %}
+
+<div class="card">
+
+    <h2>Possible Manual Matches</h2>
+
+    <p>
+        These transactions have matching instrument, side,
+        and a nearby trade time. They can be manually reviewed.
+    </p>
+
+    {% for candidate in candidates %}
+
+    <div class="candidate">
+
+        <div class="field">
+            <strong>Transaction ID:</strong>
+            {{ candidate.external_id }}
+        </div>
+
+        <div class="field">
+            <strong>Instrument:</strong>
+            {{ candidate.instrument }}
+        </div>
+
+        <div class="field">
+            <strong>Side:</strong>
+            {{ candidate.side }}
+        </div>
+
+        <div class="field">
+            <strong>Quantity:</strong>
+            {{ candidate.quantity }}
+        </div>
+
+        <div class="field">
+            <strong>Price:</strong>
+            {{ candidate.price }}
+        </div>
+
+        <div class="field">
+            <strong>Amount:</strong>
+            {{ candidate.gross_amount }}
+        </div>
+
+        <div class="field">
+            <strong>Time:</strong>
+            {{ candidate.traded_at }}
+        </div>
+
+        <form
+            method="POST"
+            action="{{
+                url_for(
+                    'reconciliation.manual_match',
+                    result_id=result.id,
+                    transaction_id=candidate.id
+                )
+            }}"
+        >
+
+            <button type="submit">
+                Match This Transaction
+            </button>
+
+        </form>
+
+    </div>
+
+    {% endfor %}
+
+</div>
+
+{% elif result.status in ["UNMATCHED_LEDGER", "UNMATCHED_STATEMENT"]
+      and result.resolution_status != "RESOLVED" %}
+
+<div class="card">
+
+    <h2>Possible Manual Matches</h2>
+
+    <p>
+        No suitable candidate transactions were found.
+    </p>
+
+</div>
+
+{% endif %}
+
+</body>
+</html>

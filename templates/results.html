@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}
+Results - Transaction Reconciliation
+{% endblock %}
+
+{% block content %}
+
+<h1>Reconciliation Results</h1>
+
+<p>
+    Run #{{ run_id }}
+</p>
+
+<div class="card">
+
+<table>
+
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Status</th>
+            <th>Match Type</th>
+            <th>Differences</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+
+    <tbody>
+
+    {% for result in results %}
+
+        <tr>
+
+            <td>
+                {{ result.id }}
+            </td>
+
+            <td class="status
+                {% if result.status == 'MATCHED' %}
+                    matched
+                {% elif result.status == 'MISMATCH' %}
+                    mismatch
+                {% else %}
+                    unmatched
+                {% endif %}
+            ">
+                {{ result.status }}
+            </td>
+
+            <td>
+                {{ result.match_type or "-" }}
+            </td>
+
+            <td>
+                {% if result.differences and result.differences != "{}" %}
+                    {{ result.differences }}
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+
+            <td>
+                <a
+                    class="button"
+                    href="{{ url_for(
+                        'reconciliation.detail',
+                        result_id=result.id
+                    ) }}"
+                >
+                    View
+                </a>
+            </td>
+
+        </tr>
+
+    {% endfor %}
+
+    </tbody>
+
+</table>
+
+</div>
+
+<a class="button" href="/">
+    Back to Dashboard
+</a>
+
+{% endblock %}

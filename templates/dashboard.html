@@ -54,17 +54,72 @@ Dashboard - Transaction Reconciliation
 
 <br>
 
-<a
-    class="button"
-    href="{{ url_for(
-        'reconciliation.run_reconciliation'
-    ) }}"
->
-    Start New Run
-</a>
+<!-- =====================================================
+     UPLOAD FILES
+     ===================================================== -->
+
+<div class="card">
+
+    <h2>Start New Reconciliation</h2>
+
+    <form
+        action="{{ url_for('reconciliation.run_reconciliation') }}"
+        method="POST"
+        enctype="multipart/form-data"
+    >
+
+        <div>
+            <label for="ledger_file">
+                <strong>Ledger CSV</strong>
+            </label>
+
+            <br>
+
+            <input
+                type="file"
+                id="ledger_file"
+                name="ledger_file"
+                accept=".csv"
+                required
+            >
+        </div>
+
+        <br>
+
+        <div>
+            <label for="statement_file">
+                <strong>Statement CSV</strong>
+            </label>
+
+            <br>
+
+            <input
+                type="file"
+                id="statement_file"
+                name="statement_file"
+                accept=".csv"
+                required
+            >
+        </div>
+
+        <br>
+
+        <button
+            type="submit"
+            class="button"
+        >
+            Start Reconciliation
+        </button>
+
+    </form>
+
+</div>
 
 <br>
-<br>
+
+<!-- =====================================================
+     LATEST RUN
+     ===================================================== -->
 
 <div class="card">
 
@@ -93,29 +148,77 @@ Dashboard - Transaction Reconciliation
 
 {% else %}
 
+<!-- =====================================================
+     FIRST RUN
+     ===================================================== -->
+
 <div class="card">
 
-    <h2>No reconciliation runs yet</h2>
+    <h2>Start Your First Reconciliation</h2>
 
-    <p>
-        Start your first reconciliation run.
-    </p>
-
-    <a
-        class="button"
-        href="{{ url_for(
-            'reconciliation.run_reconciliation'
-        ) }}"
+    <form
+        action="{{ url_for('reconciliation.run_reconciliation') }}"
+        method="POST"
+        enctype="multipart/form-data"
     >
-        Start First Run
-    </a>
+
+        <div>
+            <label for="ledger_file">
+                <strong>Ledger CSV</strong>
+            </label>
+
+            <br>
+
+            <input
+                type="file"
+                id="ledger_file"
+                name="ledger_file"
+                accept=".csv"
+                required
+            >
+        </div>
+
+        <br>
+
+        <div>
+            <label for="statement_file">
+                <strong>Statement CSV</strong>
+            </label>
+
+            <br>
+
+            <input
+                type="file"
+                id="statement_file"
+                name="statement_file"
+                accept=".csv"
+                required
+            >
+        </div>
+
+        <br>
+
+        <button
+            type="submit"
+            class="button"
+        >
+            Start Reconciliation
+        </button>
+
+    </form>
 
 </div>
 
 {% endif %}
 
 
+<!-- =====================================================
+     RECENT RUNS
+     ===================================================== -->
+
 {% if recent_runs %}
+
+<br>
 
 <div class="card">
 

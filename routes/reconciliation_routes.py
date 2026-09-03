@@ -1,12 +1,17 @@
 from datetime import datetime
 import hashlib
+import os
 
 from flask import (
     Blueprint,
     redirect,
     url_for,
     render_template,
+    request,
+    current_app,
 )
+
+from werkzeug.utils import secure_filename
 
 from models.models import (
     db,
@@ -60,15 +65,104 @@ def calculate_file_hash(path):
 # START A NEW RECONCILIATION RUN
 # =========================================================
 
-@reconciliation_bp.route("/run")
+@reconciliation_bp.route("/run", methods=["GET", "POST"])
 def run_reconciliation():
 
-    ledger_path = "data/ledger.csv"
-    statement_path = "data/statement.csv"
+    # -----------------------------------------------------
+    # GET request
+    # -----------------------------------------------------
+
+    if request.method == "GET":
+        return redirect(url_for("home"))
 
     # -----------------------------------------------------
-    # Calculate file hashes
+    # Get uploaded files
     # -----------------------------------------------------
+
+    ledger_file = request.files.get("ledger_file")
+    statement_file = request.files.get("statement_file")
+
+    if not ledger_file or not statement_file:
+        return (
+            "Both ledger and statement files are required.",
+            400,
+        )
+
+    # -----------------------------------------------------
+    # Validate file names
+    # -----------------------------------------------------
+
+    if not ledger_file.filename or not statement_file.filename:
+        return (
+            "Both files must have a valid filename.",
+            400,
+        )
+
+    # -----------------------------------------------------
+    # Only allow CSV files
+    # -----------------------------------------------------
+
+    if not ledger_file.filename.lower().endswith(".csv"):
+        return (
+            "Ledger file must be a CSV file.",
+            400,
+        )
+
+    if not statement_file.filename.lower().endswith(".csv"):
+        return (
+            "Statement file must be a CSV file.",
+            400,
+        )
+
+    # -----------------------------------------------------
+    # Create upload folder
+    # -----------------------------------------------------
+
+    upload_folder = current_app.config["UPLOAD_FOLDER"]
+
+    os.makedirs(
+        upload_folder,
+        exist_ok=True,
+    )
+
+    # -----------------------------------------------------
+    # Make filenames safe
+    # -----------------------------------------------------
+
+    ledger_filename = secure_filename(
+        ledger_file.filename
+    )
+
+    statement_filename = secure_filename(
+        statement_file.filename
+    )
+
+    if not ledger_filename or not statement_filename:
+        return (
+            "Invalid file name.",
+            400,
+        )
+
+    # -----------------------------------------------------
+    # Save uploaded files
+    # -----------------------------------------------------
+
+    ledger_path = os.path.join(
+        upload_folder,
+        ledger_filename,
+    )
+
+    statement_path = os.path.join(
+        upload_folder,
+        statement_filename,
+    )
+
+    ledger_file.save(ledger_path)
+    statement_file.save(statement_path)
+
+    # =====================================================
+    # Calculate file hashes
+    # =====================================================
 
     ledger_hash = calculate_file_hash(
         ledger_path
@@ -78,10 +172,9 @@ def run_reconciliation():
         statement_path
     )
 
-    # -----------------------------------------------------
-    # Check whether these exact files were already
-    # processed together in a previous run.
-    # -----------------------------------------------------
+    # =====================================================
+    # Check for duplicate files
+    # =====================================================
 
     previous_ledger_import = (
         FileImport.query
@@ -89,7 +182,9 @@ def run_reconciliation():
             file_hash=ledger_hash,
             file_type="LEDGER",
         )
-        .order_by(FileImport.id.desc())
+        .order_by(
+            FileImport.id.desc()
+        )
         .first()
     )
 
@@ -99,12 +194,17 @@ def run_reconciliation():
             file_hash=statement_hash,
             file_type="STATEMENT",
         )
-        .order_by(FileImport.id.desc())
+        .order_by(
+            FileImport.id.desc()
+        )
         .first()
     )
 
     # -----------------------------------------------------
     # Exact duplicate
+    #
+    # Both files have already been processed together.
+    # Reuse the existing reconciliation run.
     # -----------------------------------------------------
 
     if (
@@ -121,35 +221,32 @@ def run_reconciliation():
             )
         )
 
-    # -----------------------------------------------------
-    # Create a new reconciliation run.
-    #
-    # If a file was corrected, its hash will be different,
-    # so a new run is created while previous history remains.
-    # -----------------------------------------------------
+    # =====================================================
+    # Create new reconciliation run
+    # =====================================================
 
     run = ReconciliationRun(
-        ledger_file=ledger_path,
-        statement_file=statement_path,
+        ledger_file=ledger_filename,
+        statement_file=statement_filename,
     )
 
     db.session.add(run)
     db.session.commit()
 
-    # -----------------------------------------------------
+    # =====================================================
     # Record file imports
-    # -----------------------------------------------------
+    # =====================================================
 
     ledger_import = FileImport(
         run_id=run.id,
-        filename=ledger_path,
+        filename=ledger_filename,
         file_hash=ledger_hash,
         file_type="LEDGER",
     )
 
     statement_import = FileImport(
         run_id=run.id,
-        filename=statement_path,
+        filename=statement_filename,
         file_hash=statement_hash,
         file_type="STATEMENT",
     )
@@ -159,21 +256,30 @@ def run_reconciliation():
 
     db.session.commit()
 
-    # -----------------------------------------------------
+    # =====================================================
     # Parse input files
-    # -----------------------------------------------------
+    # =====================================================
 
-    ledger_transactions = parse_ledger(
-        ledger_path
-    )
+    try:
 
-    statement_transactions = parse_statement(
-        statement_path
-    )
+        ledger_transactions = parse_ledger(
+            ledger_path
+        )
 
-    # -----------------------------------------------------
+        statement_transactions = parse_statement(
+            statement_path
+        )
+
+    except Exception as error:
+
+        return (
+            f"Unable to process uploaded files: {error}",
+            400,
+        )
+
+    # =====================================================
     # Store ledger transactions
-    # -----------------------------------------------------
+    # =====================================================
 
     ledger_db_transactions = []
 
@@ -198,9 +304,9 @@ def run_reconciliation():
             db_tx
         )
 
-    # -----------------------------------------------------
+    # =====================================================
     # Store statement transactions
-    # -----------------------------------------------------
+    # =====================================================
 
     statement_db_transactions = []
 
@@ -227,18 +333,18 @@ def run_reconciliation():
 
     db.session.commit()
 
-    # -----------------------------------------------------
+    # =====================================================
     # Run automatic reconciliation
-    # -----------------------------------------------------
+    # =====================================================
 
     results = reconcile(
         ledger_transactions,
         statement_transactions,
     )
 
-    # -----------------------------------------------------
+    # =====================================================
     # Save reconciliation results
-    # -----------------------------------------------------
+    # =====================================================
 
     for result in results:
 
@@ -257,6 +363,7 @@ def run_reconciliation():
                     db_tx.external_id
                     == result["ledger"]["external_id"]
                 ):
+
                     ledger_tx_id = db_tx.id
                     break
 
@@ -272,6 +379,7 @@ def run_reconciliation():
                     db_tx.external_id
                     == result["statement"]["external_id"]
                 ):
+
                     statement_tx_id = db_tx.id
                     break
 
@@ -291,9 +399,9 @@ def run_reconciliation():
 
     db.session.commit()
 
-    # -----------------------------------------------------
+    # =====================================================
     # Show results
-    # -----------------------------------------------------
+    # =====================================================
 
     return redirect(
         url_for(
@@ -318,8 +426,12 @@ def results(run_id):
 
     results = (
         ReconciliationResult.query
-        .filter_by(run_id=run_id)
-        .order_by(ReconciliationResult.id)
+        .filter_by(
+            run_id=run_id
+        )
+        .order_by(
+            ReconciliationResult.id
+        )
         .all()
     )
 
@@ -407,6 +519,7 @@ def detail(result_id):
                 and time_difference
                 <= 30 * 60
             ):
+
                 candidates.append(
                     candidate
                 )
@@ -451,13 +564,14 @@ def detail(result_id):
                 and time_difference
                 <= 30 * 60
             ):
+
                 candidates.append(
                     candidate
                 )
 
-    # -----------------------------------------------------
+    # =====================================================
     # Render detail page
-    # -----------------------------------------------------
+    # =====================================================
 
     return render_template(
         "detail.html",
@@ -500,7 +614,10 @@ def manual_match(
         != result.run_id
     ):
 
-        return "Invalid transaction", 400
+        return (
+            "Invalid transaction",
+            400,
+        )
 
     # -----------------------------------------------------
     # Cancelled transactions cannot be matched
@@ -572,9 +689,9 @@ def manual_match(
             400,
         )
 
-    # -----------------------------------------------------
+    # =====================================================
     # Load both transactions
-    # -----------------------------------------------------
+    # =====================================================
 
     ledger = Transaction.query.get(
         result.ledger_transaction_id
@@ -584,9 +701,9 @@ def manual_match(
         result.statement_transaction_id
     )
 
-    # -----------------------------------------------------
+    # =====================================================
     # Convert DB objects to dictionaries
-    # -----------------------------------------------------
+    # =====================================================
 
     ledger_data = {
         "external_id": ledger.external_id,
@@ -610,18 +727,18 @@ def manual_match(
         "state": statement.state,
     }
 
-    # -----------------------------------------------------
+    # =====================================================
     # Compare manually matched transactions
-    # -----------------------------------------------------
+    # =====================================================
 
     differences = compare_transactions(
         ledger_data,
         statement_data,
     )
 
-    # -----------------------------------------------------
+    # =====================================================
     # Store manual resolution
-    # -----------------------------------------------------
+    # =====================================================
 
     result.status = "MANUALLY_MATCHED"
 
@@ -637,9 +754,9 @@ def manual_match(
 
     db.session.commit()
 
-    # -----------------------------------------------------
+    # =====================================================
     # Show updated result
-    # -----------------------------------------------------
+    # =====================================================
 
     return redirect(
         url_for(

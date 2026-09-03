@@ -1,4 +1,5 @@
 from datetime import datetime
+import hashlib
 
 from flask import (
     Blueprint,
@@ -12,6 +13,7 @@ from models.models import (
     ReconciliationRun,
     Transaction,
     ReconciliationResult,
+    FileImport,
 )
 
 from reconciliation.parser import (
@@ -30,6 +32,31 @@ reconciliation_bp = Blueprint(
 
 
 # =========================================================
+# FILE HASHING
+# =========================================================
+
+def calculate_file_hash(path):
+    """
+    Calculate SHA-256 hash for a file.
+
+    The hash allows us to identify whether a file is exactly
+    the same as a previously processed file.
+    """
+
+    sha256 = hashlib.sha256()
+
+    with open(path, "rb") as file:
+
+        for chunk in iter(
+            lambda: file.read(4096),
+            b"",
+        ):
+            sha256.update(chunk)
+
+    return sha256.hexdigest()
+
+
+# =========================================================
 # START A NEW RECONCILIATION RUN
 # =========================================================
 
@@ -40,7 +67,65 @@ def run_reconciliation():
     statement_path = "data/statement.csv"
 
     # -----------------------------------------------------
-    # Create reconciliation run
+    # Calculate file hashes
+    # -----------------------------------------------------
+
+    ledger_hash = calculate_file_hash(
+        ledger_path
+    )
+
+    statement_hash = calculate_file_hash(
+        statement_path
+    )
+
+    # -----------------------------------------------------
+    # Check whether these exact files were already
+    # processed together in a previous run.
+    # -----------------------------------------------------
+
+    previous_ledger_import = (
+        FileImport.query
+        .filter_by(
+            file_hash=ledger_hash,
+            file_type="LEDGER",
+        )
+        .order_by(FileImport.id.desc())
+        .first()
+    )
+
+    previous_statement_import = (
+        FileImport.query
+        .filter_by(
+            file_hash=statement_hash,
+            file_type="STATEMENT",
+        )
+        .order_by(FileImport.id.desc())
+        .first()
+    )
+
+    # -----------------------------------------------------
+    # Exact duplicate
+    # -----------------------------------------------------
+
+    if (
+        previous_ledger_import
+        and previous_statement_import
+        and previous_ledger_import.run_id
+        == previous_statement_import.run_id
+    ):
+
+        return redirect(
+            url_for(
+                "reconciliation.results",
+                run_id=previous_ledger_import.run_id,
+            )
+        )
+
+    # -----------------------------------------------------
+    # Create a new reconciliation run.
+    #
+    # If a file was corrected, its hash will be different,
+    # so a new run is created while previous history remains.
     # -----------------------------------------------------
 
     run = ReconciliationRun(
@@ -52,11 +137,39 @@ def run_reconciliation():
     db.session.commit()
 
     # -----------------------------------------------------
+    # Record file imports
+    # -----------------------------------------------------
+
+    ledger_import = FileImport(
+        run_id=run.id,
+        filename=ledger_path,
+        file_hash=ledger_hash,
+        file_type="LEDGER",
+    )
+
+    statement_import = FileImport(
+        run_id=run.id,
+        filename=statement_path,
+        file_hash=statement_hash,
+        file_type="STATEMENT",
+    )
+
+    db.session.add(ledger_import)
+    db.session.add(statement_import)
+
+    db.session.commit()
+
+    # -----------------------------------------------------
     # Parse input files
     # -----------------------------------------------------
 
-    ledger_transactions = parse_ledger(ledger_path)
-    statement_transactions = parse_statement(statement_path)
+    ledger_transactions = parse_ledger(
+        ledger_path
+    )
+
+    statement_transactions = parse_statement(
+        statement_path
+    )
 
     # -----------------------------------------------------
     # Store ledger transactions
@@ -80,7 +193,10 @@ def run_reconciliation():
         )
 
         db.session.add(db_tx)
-        ledger_db_transactions.append(db_tx)
+
+        ledger_db_transactions.append(
+            db_tx
+        )
 
     # -----------------------------------------------------
     # Store statement transactions
@@ -104,12 +220,15 @@ def run_reconciliation():
         )
 
         db.session.add(db_tx)
-        statement_db_transactions.append(db_tx)
+
+        statement_db_transactions.append(
+            db_tx
+        )
 
     db.session.commit()
 
     # -----------------------------------------------------
-    # Run reconciliation engine
+    # Run automatic reconciliation
     # -----------------------------------------------------
 
     results = reconcile(
@@ -126,7 +245,10 @@ def run_reconciliation():
         ledger_tx_id = None
         statement_tx_id = None
 
+        # -------------------------------------------------
         # Find corresponding DB ledger transaction
+        # -------------------------------------------------
+
         if result["ledger"] is not None:
 
             for db_tx in ledger_db_transactions:
@@ -138,7 +260,10 @@ def run_reconciliation():
                     ledger_tx_id = db_tx.id
                     break
 
+        # -------------------------------------------------
         # Find corresponding DB statement transaction
+        # -------------------------------------------------
+
         if result["statement"] is not None:
 
             for db_tx in statement_db_transactions:
@@ -156,7 +281,9 @@ def run_reconciliation():
             statement_transaction_id=statement_tx_id,
             status=result["status"],
             match_type=result["match_type"],
-            differences=str(result["differences"]),
+            differences=str(
+                result["differences"]
+            ),
             resolution_status="UNRESOLVED",
         )
 
@@ -180,10 +307,14 @@ def run_reconciliation():
 # RESULTS PAGE
 # =========================================================
 
-@reconciliation_bp.route("/results/<int:run_id>")
+@reconciliation_bp.route(
+    "/results/<int:run_id>"
+)
 def results(run_id):
 
-    run = ReconciliationRun.query.get_or_404(run_id)
+    run = ReconciliationRun.query.get_or_404(
+        run_id
+    )
 
     results = (
         ReconciliationResult.query
@@ -203,7 +334,9 @@ def results(run_id):
 # RESULT DETAIL PAGE
 # =========================================================
 
-@reconciliation_bp.route("/result/<int:result_id>")
+@reconciliation_bp.route(
+    "/result/<int:result_id>"
+)
 def detail(result_id):
 
     result = ReconciliationResult.query.get_or_404(
@@ -239,14 +372,20 @@ def detail(result_id):
     # UNMATCHED LEDGER
     # =====================================================
 
-    if result.status == "UNMATCHED_LEDGER" and ledger:
+    if (
+        result.status == "UNMATCHED_LEDGER"
+        and ledger
+    ):
 
         all_candidates = (
             Transaction.query
             .filter(
-                Transaction.run_id == result.run_id,
-                Transaction.source == "STATEMENT",
-                Transaction.state != "CANCELLED",
+                Transaction.run_id
+                == result.run_id,
+                Transaction.source
+                == "STATEMENT",
+                Transaction.state
+                != "CANCELLED",
             )
             .all()
         )
@@ -260,36 +399,37 @@ def detail(result_id):
                 ).total_seconds()
             )
 
-            # For manual matching we intentionally use
-            # a looser rule than automatic matching.
-            #
-            # Same instrument
-            # Same side
-            # Within 30 minutes
-            #
-            # Quantity does NOT need to be equal.
             if (
-                candidate.instrument == ledger.instrument
-                and candidate.side == ledger.side
-                and time_difference <= 30 * 60
+                candidate.instrument
+                == ledger.instrument
+                and candidate.side
+                == ledger.side
+                and time_difference
+                <= 30 * 60
             ):
-                candidates.append(candidate)
+                candidates.append(
+                    candidate
+                )
 
     # =====================================================
     # UNMATCHED STATEMENT
     # =====================================================
 
     elif (
-        result.status == "UNMATCHED_STATEMENT"
+        result.status
+        == "UNMATCHED_STATEMENT"
         and statement
     ):
 
         all_candidates = (
             Transaction.query
             .filter(
-                Transaction.run_id == result.run_id,
-                Transaction.source == "LEDGER",
-                Transaction.state != "CANCELLED",
+                Transaction.run_id
+                == result.run_id,
+                Transaction.source
+                == "LEDGER",
+                Transaction.state
+                != "CANCELLED",
             )
             .all()
         )
@@ -303,15 +443,17 @@ def detail(result_id):
                 ).total_seconds()
             )
 
-            # Same loose manual matching criteria.
             if (
                 candidate.instrument
                 == statement.instrument
                 and candidate.side
                 == statement.side
-                and time_difference <= 30 * 60
+                and time_difference
+                <= 30 * 60
             ):
-                candidates.append(candidate)
+                candidates.append(
+                    candidate
+                )
 
     # -----------------------------------------------------
     # Render detail page
@@ -334,29 +476,45 @@ def detail(result_id):
     "/result/<int:result_id>/match/<int:transaction_id>",
     methods=["POST"],
 )
-def manual_match(result_id, transaction_id):
+def manual_match(
+    result_id,
+    transaction_id,
+):
 
     result = ReconciliationResult.query.get_or_404(
         result_id
     )
 
-    selected_transaction = Transaction.query.get_or_404(
-        transaction_id
+    selected_transaction = (
+        Transaction.query.get_or_404(
+            transaction_id
+        )
     )
 
     # -----------------------------------------------------
-    # Security / validation
+    # Validate same reconciliation run
     # -----------------------------------------------------
 
-    # Selected transaction must belong to same run.
-    if selected_transaction.run_id != result.run_id:
+    if (
+        selected_transaction.run_id
+        != result.run_id
+    ):
 
         return "Invalid transaction", 400
 
-    # Do not allow cancelled transactions.
-    if selected_transaction.state == "CANCELLED":
+    # -----------------------------------------------------
+    # Cancelled transactions cannot be matched
+    # -----------------------------------------------------
 
-        return "Cannot match a cancelled transaction", 400
+    if (
+        selected_transaction.state
+        == "CANCELLED"
+    ):
+
+        return (
+            "Cannot match a cancelled transaction",
+            400,
+        )
 
     # =====================================================
     # UNMATCHED LEDGER
@@ -364,14 +522,19 @@ def manual_match(result_id, transaction_id):
 
     if result.status == "UNMATCHED_LEDGER":
 
-        ledger = Transaction.query.get_or_404(
+        Transaction.query.get_or_404(
             result.ledger_transaction_id
         )
 
-        # Selected transaction must be from statement.
-        if selected_transaction.source != "STATEMENT":
+        if (
+            selected_transaction.source
+            != "STATEMENT"
+        ):
 
-            return "Invalid statement transaction", 400
+            return (
+                "Invalid statement transaction",
+                400,
+            )
 
         result.statement_transaction_id = (
             selected_transaction.id
@@ -383,14 +546,19 @@ def manual_match(result_id, transaction_id):
 
     elif result.status == "UNMATCHED_STATEMENT":
 
-        statement = Transaction.query.get_or_404(
+        Transaction.query.get_or_404(
             result.statement_transaction_id
         )
 
-        # Selected transaction must be from ledger.
-        if selected_transaction.source != "LEDGER":
+        if (
+            selected_transaction.source
+            != "LEDGER"
+        ):
 
-            return "Invalid ledger transaction", 400
+            return (
+                "Invalid ledger transaction",
+                400,
+            )
 
         result.ledger_transaction_id = (
             selected_transaction.id
@@ -399,7 +567,8 @@ def manual_match(result_id, transaction_id):
     else:
 
         return (
-            "Only unmatched transactions can be manually matched",
+            "Only unmatched transactions can be "
+            "manually matched",
             400,
         )
 
@@ -416,7 +585,7 @@ def manual_match(result_id, transaction_id):
     )
 
     # -----------------------------------------------------
-    # Convert DB objects to reconciliation dictionaries
+    # Convert DB objects to dictionaries
     # -----------------------------------------------------
 
     ledger_data = {

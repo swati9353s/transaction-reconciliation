@@ -28,9 +28,6 @@ The application supports:
 - Detailed transaction comparison
 - Automated tests for reconciliation logic
 
-> Note: The current MVP processes the sample files from the `data/` directory.
-> Browser-based file upload is not implemented yet.
-
 ---
 
 ## How to Run

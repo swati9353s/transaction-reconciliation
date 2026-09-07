@@ -12,6 +12,7 @@ sources into a common transaction structure before performing reconciliation.
 
 The application supports:
 
+- Browser-based upload of ledger and statement CSV files
 - Parsing ledger and statement CSV files
 - Normalizing different source formats
 - Matching transactions using transaction IDs
@@ -30,21 +31,21 @@ The application supports:
 
 ---
 
-## How to Run
+# How to Run
 
-### Prerequisites
+## Prerequisites
 
 - Python 3.x
 - pip
 
-### 1. Clone the repository
+## 1. Clone the repository
 
 ```bash
 git clone https://github.com/swati9353s/transaction-reconciliation.git
 cd transaction-reconciliation
 ```
 
-### 2. Create a virtual environment
+## 2. Create a virtual environment
 
 On Windows:
 
@@ -58,13 +59,13 @@ Activate the virtual environment:
 venv\Scripts\activate
 ```
 
-### 3. Install dependencies
+## 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Run the application
+## 4. Run the application
 
 ```bash
 python app.py
@@ -78,7 +79,7 @@ http://127.0.0.1:5000
 
 Open the URL in a browser.
 
-### 5. Run tests
+## 5. Run tests
 
 ```bash
 python -m pytest
@@ -89,14 +90,12 @@ behaviour, route behaviour, and duplicate file handling.
 
 ---
 
-## Input Files
+# Input Files
 
-The application currently uses two CSV files:
+The application accepts two CSV files through the browser:
 
-```text
-data/ledger.csv
-data/statement.csv
-```
+- Ledger file
+- Statement file
 
 The two files can have different column names but represent the same
 transaction information.
@@ -129,6 +128,9 @@ status
 
 The parser converts both formats into a common transaction representation.
 
+Users can select the ledger and statement files from the browser and start a
+reconciliation run.
+
 ---
 
 # Architecture
@@ -138,47 +140,57 @@ reconciliation logic remains independent from the web interface and database.
 
 ```text
                     Ledger CSV
-                        |
-                        v
-                  +-----------+
-                  |   Parser  |
-                  +-----------+
-                        |
-                        v
+                         |
+                         v
+                +----------------+
+                | Browser Upload |
+                +--------+-------+
+                         |
+                         v
+                  +-------------+
+                  |   Parser    |
+                  +------+------+
+                         |
+                         v
               Normalized Transactions
-                        ^
-                        |
-                  +-----------+
-                  |   Parser  |
-                  +-----------+
-                        ^
-                        |
-                  Statement CSV
+                         ^
+                         |
+                  +------+------+
+                  |   Parser    |
+                  +-------------+
+                         ^
+                         |
+                +--------+-------+
+                | Browser Upload |
+                +----------------+
+                         ^
+                         |
+                    Statement CSV
 
-                        |
-                        v
-                 +-------------+
-                 |   Matching  |
-                 +-------------+
-                        |
-                        v
-                 +-------------+
-                 | Comparison  |
-                 +-------------+
-                        |
-                        v
+                         |
+                         v
+                  +-------------+
+                  |   Matching  |
+                  +------+------+
+                         |
+                         v
+                  +-------------+
+                  | Comparison  |
+                  +------+------+
+                         |
+                         v
               Reconciliation Results
-                        |
-                        v
-                   +--------+
-                   | SQLite |
-                   +--------+
-                        |
-                        v
-                     Web UI
+                         |
+                         v
+                    +--------+
+                    | SQLite |
+                    +--------+
+                         |
+                         v
+                      Web UI
 ```
 
-### `app.py`
+## `app.py`
 
 Responsible for:
 
@@ -190,10 +202,11 @@ Responsible for:
 - Rendering the dashboard
 - Displaying reconciliation statistics
 
-### `routes/reconciliation_routes.py`
+## `routes/reconciliation_routes.py`
 
 Responsible for:
 
+- Handling browser file uploads
 - Starting reconciliation runs
 - Calculating file hashes
 - Detecting duplicate files
@@ -205,7 +218,7 @@ Responsible for:
 - Displaying transaction details
 - Handling manual matching
 
-### `reconciliation/parser.py`
+## `reconciliation/parser.py`
 
 Responsible for parsing the ledger and statement files and converting them
 into a common transaction format.
@@ -213,21 +226,21 @@ into a common transaction format.
 This keeps source-specific column names separate from the reconciliation
 logic.
 
-### `reconciliation/matching.py`
+## `reconciliation/matching.py`
 
 Responsible for identifying transactions that correspond to each other.
 
 It performs automatic matching and identifies candidates for transactions
 that could not be matched directly.
 
-### `reconciliation/comparison.py`
+## `reconciliation/comparison.py`
 
 Responsible for comparing two transactions after they have been matched.
 
 The comparison logic is independent of Flask and the database, which makes it
 easy to unit test.
 
-### `models/models.py`
+## `models/models.py`
 
 Contains the SQLAlchemy models used to persist:
 
@@ -260,8 +273,6 @@ Both files are converted into a common structure containing fields such as:
 This allows the matching and comparison logic to work independently of the
 original file format.
 
----
-
 ## 2. Match Exact IDs
 
 The first matching strategy is to match transactions using their transaction
@@ -282,8 +293,6 @@ These transactions can be directly matched.
 Exact ID matching is preferred because it provides the strongest indication
 that both records represent the same transaction.
 
----
-
 ## 3. Identify Unmatched Transactions
 
 Transactions that cannot be matched automatically are classified as:
@@ -301,8 +310,6 @@ UNMATCHED_STATEMENT
 Both directions are checked so that transactions missing from either system
 are detected.
 
----
-
 ## 4. Candidate Matching
 
 For unmatched transactions, the application identifies possible candidates
@@ -317,8 +324,6 @@ Candidate matching considers:
 - Transaction is not cancelled
 
 These candidates are displayed on the transaction detail page.
-
----
 
 ## 5. Manual Matching
 
@@ -410,8 +415,6 @@ Difference:          $20
 ```
 
 This is outside tolerance and is reported as a difference.
-
----
 
 ## Time Tolerance
 
@@ -529,8 +532,6 @@ It stores:
 - Ledger file name
 - Statement file name
 
----
-
 ## `Transaction`
 
 Stores normalized transactions from either source.
@@ -548,8 +549,6 @@ Important fields include:
 - Gross amount
 - State
 
----
-
 ## `ReconciliationResult`
 
 Stores the result of comparing transactions.
@@ -565,8 +564,6 @@ It contains:
 - Resolution status
 - Resolution timestamp
 - Creation timestamp
-
----
 
 ## `FileImport`
 
@@ -618,6 +615,60 @@ A larger framework was not necessary for the scope of this assignment.
 
 ---
 
+# Browser File Upload
+
+The application supports uploading both source files directly through the
+browser.
+
+The workflow is:
+
+```text
+Ledger CSV
+     |
+     v
+Browser Upload
+     |
+     v
+File Processing
+     |
+     v
+Parser
+     |
+     v
+Normalized Transactions
+
+
+Statement CSV
+     |
+     v
+Browser Upload
+     |
+     v
+File Processing
+     |
+     v
+Parser
+     |
+     v
+Normalized Transactions
+```
+
+The user selects:
+
+1. Ledger CSV file
+2. Statement CSV file
+
+and starts the reconciliation run.
+
+The backend receives the uploaded files, processes them, normalizes the
+transaction data, performs reconciliation, and stores the results in the
+database.
+
+This provides an end-to-end workflow from browser file upload to
+reconciliation results.
+
+---
+
 # Duplicate Files
 
 Duplicate files can arrive during daily processing.
@@ -631,10 +682,10 @@ For example:
 ledger.csv
     |
     v
-SHA-256
+ SHA-256
     |
     v
-File Hash
+ File Hash
 ```
 
 The hash is stored in the `FileImport` table.
@@ -661,12 +712,12 @@ For example:
 Original file
      |
      v
-Hash A
+   Hash A
 
 Corrected file
      |
      v
-Hash B
+   Hash B
 ```
 
 If the file content changes, its SHA-256 hash also changes.
@@ -767,7 +818,7 @@ This provides historical visibility when corrected source files are received.
 
 # User Interface
 
-The application provides three main views.
+The application provides four main views.
 
 ## Dashboard
 
@@ -782,7 +833,15 @@ The dashboard displays:
 - Recent reconciliation runs
 - Option to start a new reconciliation run
 
----
+## File Upload
+
+The file upload interface allows the user to:
+
+- Select a ledger CSV file
+- Select a statement CSV file
+- Start a reconciliation run
+
+The uploaded files are sent to the backend for processing.
 
 ## Results Page
 
@@ -798,8 +857,6 @@ It shows:
 - Action to inspect the result
 
 Users can open an individual result to view more details.
-
----
 
 ## Transaction Detail Page
 
@@ -845,8 +902,11 @@ Comparison tests cover:
 
 ## Route Tests
 
-Route tests cover application-level behaviour including duplicate file
-handling.
+Route tests cover application-level behaviour including:
+
+- Reconciliation route behaviour
+- File handling
+- Duplicate file detection
 
 ## Running Tests
 
@@ -870,21 +930,7 @@ Expected result:
 
 The following features are intentionally outside the current MVP.
 
-## 1. Browser File Upload
-
-The current implementation processes:
-
-```text
-data/ledger.csv
-data/statement.csv
-```
-
-A future version would provide a browser interface where users can upload
-ledger and statement files directly.
-
----
-
-## 2. Authentication and Authorization
+## 1. Authentication and Authorization
 
 The application does not currently include:
 
@@ -897,18 +943,14 @@ The application does not currently include:
 A production application would require appropriate authentication and
 authorization.
 
----
-
-## 3. Scheduled Daily Runs
+## 2. Scheduled Daily Runs
 
 The current MVP starts reconciliation through the application.
 
 Automated daily reconciliation using a scheduler or background worker is not
 implemented.
 
----
-
-## 4. Advanced Audit History
+## 3. Advanced Audit History
 
 The application stores reconciliation runs and manual resolution timestamps,
 but it does not currently maintain a complete event-by-event audit trail.
@@ -923,36 +965,28 @@ A production system should record information such as:
 - Previous transaction association
 - New transaction association
 
----
-
-## 5. Advanced Candidate Scoring
+## 4. Advanced Candidate Scoring
 
 Candidate matching currently uses filtering rules.
 
 It does not yet provide a sophisticated weighted scoring system when multiple
 possible candidates are found.
 
----
-
-## 6. Multiple Third-Party Source Adapters
+## 5. Multiple Third-Party Source Adapters
 
 The current implementation focuses on the provided ledger and statement
 formats.
 
 Additional source formats would require additional parser/adapter logic.
 
----
-
-## 7. Production Database
+## 6. Production Database
 
 SQLite is used for the MVP.
 
 A production deployment would use PostgreSQL or another production-grade
 database.
 
----
-
-## 8. Large-Scale Processing
+## 7. Large-Scale Processing
 
 The current implementation is designed for a small reconciliation dataset.
 
@@ -988,8 +1022,6 @@ Candidates could then be ranked from most likely to least likely.
 
 This would make manual reconciliation faster when multiple candidates exist.
 
----
-
 ## 2. Complete Audit History
 
 I would introduce a dedicated audit table that records every manual
@@ -1012,8 +1044,6 @@ Reason
 
 This would make the system more suitable for financial operations where every
 manual decision needs to be traceable.
-
----
 
 ## 3. Scheduled Runs
 
@@ -1043,8 +1073,6 @@ Notification / Reporting
 This would remove the need for manual execution of the reconciliation
 process.
 
----
-
 ## 4. Third-Party Format Adapters
 
 I would introduce an adapter-based architecture for supporting additional
@@ -1067,8 +1095,6 @@ Reconciliation Engine
 This would allow new file formats to be added without changing the core
 matching and comparison logic.
 
----
-
 ## 5. PostgreSQL
 
 For production use, I would migrate from SQLite to PostgreSQL.
@@ -1081,8 +1107,6 @@ This would provide better support for:
 - Database indexing
 - Transactions
 - Reliability
-
----
 
 ## 6. Improved UI
 
@@ -1112,6 +1136,7 @@ Future UI improvements could include:
 | 30-minute time tolerance | Allows clock and processing-time differences |
 | Separate reconciliation runs | Preserves previous results |
 | Manual resolution | Allows human decisions when automatic matching is uncertain |
+| Browser file upload | Provides an end-to-end user workflow |
 | Normalized transactions | Keeps source-specific formats separate from reconciliation logic |
 | Pytest | Provides simple automated testing |
 
@@ -1130,7 +1155,9 @@ The following assumptions were made for this MVP:
 6. Cancelled transactions should not be selected as manual candidates.
 7. Previous reconciliation runs should remain available after corrections.
 8. Manual decisions should persist in the database.
-9. The supplied sample CSV files are used as the input for the current MVP.
+9. Users provide the ledger and statement files through the browser.
+10. The supplied sample CSV formats are used as the primary input formats for
+    the current MVP.
 
 ---
 
@@ -1144,6 +1171,7 @@ The implementation prioritizes:
 - Clear reconciliation logic
 - Testability
 - Simple architecture
+- Browser-based file upload
 - Persistent reconciliation results
 - Duplicate detection
 - Manual resolution
@@ -1175,14 +1203,14 @@ A possible production architecture could look like:
                        |    Web/API    |
                        +-------+-------+
                                |
-                 +-------------+-------------+
-                 |                           |
-                 v                           v
-         +---------------+           +---------------+
-         | File Upload   |           |   Scheduler   |
-         +-------+-------+           +-------+-------+
-                 |                           |
-                 +-------------+-------------+
+                  +------------+------------+
+                  |                         |
+                  v                         v
+          +---------------+          +---------------+
+          | File Upload   |          |   Scheduler   |
+          +-------+-------+          +-------+-------+
+                  |                          |
+                  +------------+-------------+
                                |
                                v
                        +---------------+
@@ -1200,12 +1228,12 @@ A possible production architecture could look like:
                        |  PostgreSQL   |
                        +-------+-------+
                                |
-                    +----------+----------+
-                    |                     |
-                    v                     v
-             +-------------+       +-------------+
-             |   Reports   |       | Notifications|
-             +-------------+       +-------------+
+                         +-----+-----+
+                         |           |
+                         v           v
+                  +-------------+ +-------------+
+                  |   Reports   | | Notifications|
+                  +-------------+ +-------------+
 ```
 
 ---
@@ -1216,27 +1244,42 @@ This project provides a complete reconciliation MVP covering the main stages
 of a transaction reconciliation workflow:
 
 ```text
-Input Files
-    ↓
+Browser File Upload
+        ↓
 Parsing
-    ↓
+        ↓
 Normalization
-    ↓
+        ↓
 Automatic Matching
-    ↓
+        ↓
 Field Comparison
-    ↓
+        ↓
 Reconciliation Results
-    ↓
+        ↓
 Manual Review
-    ↓
+        ↓
 Resolution
-    ↓
+        ↓
 Persistent History
 ```
 
 The design keeps the core reconciliation logic separate from the Flask web
 layer and database, making the system easier to test and extend.
+
+The application demonstrates:
+
+- Browser-based file upload
+- Source-specific parsing
+- Transaction normalization
+- Automatic transaction matching
+- Tolerance-based comparison
+- Mismatch detection
+- Unmatched transaction detection
+- Manual transaction resolution
+- Duplicate file detection
+- Corrected file handling
+- Persistent reconciliation history
+- Automated testing
 
 The next major improvements for a production system would be:
 
